@@ -1,0 +1,36 @@
+GARIBALDI MARKET ORACLE — EASY-READ UI PATCH
+
+This patch changes ONLY the dashboard interface.
+It does not replace or delete your workers, database, variables, migrations, or trading logic.
+
+FILES TO REPLACE
+1. Replace the existing app.py in the root of your GitHub repository with the app.py included in this patch.
+
+GITHUB MOBILE STEPS
+1. Open your repository.
+2. Tap app.py.
+3. Tap the pencil/edit icon.
+4. Select all existing code and delete it.
+5. Paste the complete contents of the new app.py.
+6. Tap Commit changes.
+
+Alternative:
+1. In GitHub, delete only app.py.
+2. Tap Add file > Upload files.
+3. Upload the new app.py from this patch.
+4. Commit changes.
+
+RAILWAY
+- Do not delete any Railway service.
+- Do not delete PostgreSQL.
+- Do not change or remove variables.
+- Keep the Web start command: python start_web.py
+- Railway should redeploy automatically after the GitHub commit.
+
+WHAT THIS PATCH CHANGES
+- Replaces the crowded council table with responsive decision cards.
+- Shows BUY opportunities first.
+- Converts confidence decimals into percentages.
+- Adds simple filters for Best, Buy, Hold, and Sell.
+- Uses one column on phones, two on tablets, and three on desktop.
+- Keeps all existing database and worker behavior intact.
