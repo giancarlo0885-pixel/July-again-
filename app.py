@@ -70,13 +70,41 @@ st.markdown(
       .online {background:#50db8d;box-shadow:0 0 12px rgba(80,219,141,.65)}
       .offline {background:#ff6d77;}
       .vote-row {padding:12px 14px;border:1px solid #263140;border-radius:14px;background:#0f151e;margin-bottom:8px;}
+      .decision-list {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:12px;}
+      .decision-item {border:1px solid #273344;border-radius:18px;background:#0f151e;padding:17px;min-width:0;box-shadow:0 8px 24px rgba(0,0,0,.18);}
+      .decision-top {display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
+      .decision-name {font-size:1.25rem;font-weight:900;letter-spacing:.01em;}
+      .decision-meta {display:flex;gap:8px;flex-wrap:wrap;color:#9ba8ba;font-size:.84rem;margin-bottom:10px;}
+      .decision-score {display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+      .decision-stat {background:#0b1119;border:1px solid #222d3b;border-radius:12px;padding:10px;}
+      .decision-stat small {display:block;color:#8f9bad;margin-bottom:3px;}
+      .decision-stat b {font-size:1.05rem;}
+      .decision-reason {color:#c2ccda;line-height:1.5;font-size:.94rem;margin-top:11px;}
+      .decision-summary {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0 16px;}
+      .summary-box {border:1px solid #273344;border-radius:16px;background:#0f151e;padding:15px;}
+      .summary-box small {display:block;color:#95a2b4;margin-bottom:4px;}
+      .summary-box b {font-size:1.45rem;}
+      .plain-note {border-left:4px solid #7d6cff;background:#101722;padding:12px 14px;border-radius:12px;color:#c7d1df;margin:8px 0 14px;}
       div[data-testid="stMetric"] {border:1px solid #273344;border-radius:16px;padding:12px;background:#0f151e;}
       div[data-testid="stTabs"] button {font-size:.95rem;}
+      @media (max-width: 1100px) {
+        .decision-list {grid-template-columns:repeat(2,minmax(0,1fr));}
+      }
+      @media (max-width: 700px) {
+        .decision-list {grid-template-columns:1fr;}
+        .decision-summary {grid-template-columns:1fr;}
+      }
       @media (max-width: 700px) {
         .block-container {padding-left:.75rem;padding-right:.75rem;}
         .hero {padding:18px;}
-        .decision-card {min-height:0;}
+        .hero h1 {font-size:2rem;}
+        .decision-card {min-height:0;padding:18px;}
         .metric-card .value {font-size:1.9rem;}
+        .decision-item {padding:14px;border-radius:16px;}
+        .decision-name {font-size:1.15rem;}
+        .decision-top {align-items:flex-start;}
+        div[data-testid="stTabs"] {overflow-x:auto;}
+        div[data-testid="stTabs"] [role="tablist"] {min-width:max-content;}
       }
     </style>
     """,
@@ -347,35 +375,121 @@ with portfolio_tab:
         st.plotly_chart(px.line(frame.sort_values("created_at"), x="created_at", y="equity", color="market", title="Portfolio equity over time"), use_container_width=True)
 
 with council_tab:
-    st.header("Oracle Council V3")
-    st.caption("Twelve specialists independently evaluate every setup before the council produces a final decision.")
-    specialists = [
-        ("Chief Market Strategist", "Combines the complete engine signal."),
-        ("Trend & Momentum Specialist", "Measures persistence across multiple time horizons."),
-        ("Dip & Mean-Reversion Specialist", "Finds oversold dislocations and rebound setups."),
-        ("Liquidity & Volume Specialist", "Checks participation and unusual volume."),
-        ("Macro Regime Specialist", "Adjusts decisions for risk-on and risk-off conditions."),
-        ("News Catalyst Specialist", "Evaluates headlines and event catalysts."),
-        ("Risk & Drawdown Specialist", "Protects capital during unstable conditions."),
-        ("Opportunity Ranker", "Compares each setup against all alternatives."),
-        ("Portfolio Rotation Specialist", "Decides whether capital should move to a stronger asset."),
-        ("Crypto Structure Specialist", "Handles digital-asset volatility and structure."),
-        ("Equity Quality Specialist", "Favors durable stock trends and quality setups."),
-        ("Devil's Advocate", "Challenges consensus before a trade is approved."),
-    ]
-    cols = st.columns(2)
-    for index, (name, description) in enumerate(specialists):
-        with cols[index % 2]:
-            st.markdown(f'<div class="vote-row"><b>{html.escape(name)}</b><br><span class="muted">{html.escape(description)}</span></div>', unsafe_allow_html=True)
+    st.header("Oracle Council")
+    st.caption("The clearest view of what the AI recommends right now.")
 
-    st.subheader("Latest council decisions")
-    signals = safe_rows("SELECT market,symbol,score,action,confidence,details,created_at FROM signals ORDER BY id DESC LIMIT 30")
+    signals = safe_rows(
+        "SELECT market,symbol,score,action,confidence,details,created_at FROM signals ORDER BY id DESC LIMIT 30"
+    )
     if signals:
-        table = pd.DataFrame(signals)
-        table["market"] = table["market"].map(clean_market)
-        st.dataframe(table[[c for c in ["created_at", "market", "symbol", "action", "score", "confidence"] if c in table.columns]], use_container_width=True, hide_index=True)
+        buys = [x for x in signals if str(x.get("action") or "").upper() == "BUY"]
+        sells = [x for x in signals if str(x.get("action") or "").upper() == "SELL"]
+        holds = [x for x in signals if str(x.get("action") or "HOLD").upper() == "HOLD"]
+        avg_conf = sum(normalized_confidence(x.get("confidence")) for x in signals) / max(len(signals), 1)
+
+        st.markdown(
+            f"""
+            <div class="decision-summary">
+              <div class="summary-box"><small>Buy opportunities</small><b>🟢 {len(buys)}</b></div>
+              <div class="summary-box"><small>Watch / hold</small><b>🟡 {len(holds)}</b></div>
+              <div class="summary-box"><small>Average confidence</small><b>{avg_conf:.0f}%</b></div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div class="plain-note"><b>How to read this:</b> BUY means the setup passed the council. HOLD means watch it, but do not enter yet. SELL means risk increased or the setup weakened.</div>',
+            unsafe_allow_html=True,
+        )
+
+        filter_choice = st.segmented_control(
+            "Show decisions",
+            options=["Best first", "Buy only", "Hold only", "Sell only"],
+            default="Best first",
+        )
+        filtered = list(signals)
+        if filter_choice == "Buy only":
+            filtered = buys
+        elif filter_choice == "Hold only":
+            filtered = holds
+        elif filter_choice == "Sell only":
+            filtered = sells
+        else:
+            priority = {"BUY": 0, "SELL": 1, "HOLD": 2}
+            filtered = sorted(
+                filtered,
+                key=lambda x: (
+                    priority.get(str(x.get("action") or "HOLD").upper(), 3),
+                    -normalized_confidence(x.get("confidence")),
+                    -as_float(x.get("score")),
+                ),
+            )
+
+        st.subheader("Latest decisions")
+        if filtered:
+            cards: list[str] = []
+            for item in filtered[:18]:
+                decision_action = str(item.get("action") or "HOLD").upper()
+                decision_confidence = normalized_confidence(item.get("confidence"))
+                decision_score = as_float(item.get("score"))
+                decision_details = parse_json(item.get("details"))
+                decision_reason = str(
+                    decision_details.get("reason")
+                    or decision_details.get("explanation")
+                    or decision_details.get("summary")
+                    or "The council reviewed trend, momentum, volume, news, and risk."
+                )
+                created = pd.to_datetime(item.get("created_at"), errors="coerce", utc=True)
+                if pd.isna(created):
+                    time_text = "Latest scan"
+                else:
+                    time_text = created.strftime("%b %d · %I:%M %p UTC")
+                market_text = "Stocks" if clean_market(item.get("market")) == "stock" else "Crypto"
+                score_label = "Strong" if decision_score >= 0.65 else "Moderate" if decision_score >= 0.5 else "Developing"
+                cards.append(
+                    f"""
+                    <div class="decision-item">
+                      <div class="decision-top">
+                        <div class="decision-name">{html.escape(str(item.get('symbol') or '—'))}</div>
+                        <span class="pill {action_class(decision_action)}">{html.escape(decision_action)}</span>
+                      </div>
+                      <div class="decision-meta"><span>{market_text}</span><span>•</span><span>{html.escape(time_text)}</span></div>
+                      <div class="decision-score">
+                        <div class="decision-stat"><small>Confidence</small><b>{decision_confidence:.0f}%</b></div>
+                        <div class="decision-stat"><small>Setup strength</small><b>{score_label}</b></div>
+                      </div>
+                      <div class="decision-reason"><b>Why:</b> {html.escape(short_reason(decision_reason, 145))}</div>
+                    </div>
+                    """
+                )
+            st.markdown('<div class="decision-list">' + ''.join(cards) + '</div>', unsafe_allow_html=True)
+        else:
+            st.info("No decisions match this filter.")
     else:
         st.info("Council decisions will appear after the next worker scan.")
+
+    with st.expander("Meet the 12 council specialists"):
+        specialists = [
+            ("Chief Market Strategist", "Combines the full market signal."),
+            ("Trend & Momentum", "Checks whether price direction is strong and persistent."),
+            ("Dip Specialist", "Looks for oversold rebound opportunities."),
+            ("Liquidity & Volume", "Checks trading activity and unusual volume."),
+            ("Macro Regime", "Adjusts for risk-on and risk-off conditions."),
+            ("News Catalyst", "Evaluates headlines and upcoming events."),
+            ("Risk & Drawdown", "Protects the portfolio from unstable setups."),
+            ("Opportunity Ranker", "Compares each asset against the alternatives."),
+            ("Portfolio Rotation", "Moves capital toward stronger opportunities."),
+            ("Crypto Structure", "Handles digital-asset volatility."),
+            ("Equity Quality", "Evaluates stock quality and durability."),
+            ("Devil's Advocate", "Challenges the final decision before approval."),
+        ]
+        cols = st.columns(2)
+        for index, (name, description) in enumerate(specialists):
+            with cols[index % 2]:
+                st.markdown(
+                    f'<div class="vote-row"><b>{html.escape(name)}</b><br><span class="muted">{html.escape(description)}</span></div>',
+                    unsafe_allow_html=True,
+                )
 
 with radar_tab:
     st.header("Market Radar")
